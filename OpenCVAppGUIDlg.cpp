@@ -11,6 +11,7 @@
 #include <fstream>
 #include <iomanip>
 #include <ctime>
+#include <format>
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -79,7 +80,7 @@ BEGIN_MESSAGE_MAP(COpenCVAppGUIDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_BTN_SAVE, &COpenCVAppGUIDlg::OnBnClickedBtnSave)
 	ON_BN_CLICKED(IDC_BTN_INSPECTION, &COpenCVAppGUIDlg::OnBnClickedBtnInspection)
 	ON_BN_CLICKED(IDC_BTN_INSPECTION_CV, &COpenCVAppGUIDlg::OnBnClickedBtnInspectionCv)
-//	ON_BN_CLICKED(IDC_BTN_SAMPLE_CODE, &COpenCVAppGUIDlg::OnBnClickedBtnSampleCode)
+	//	ON_BN_CLICKED(IDC_BTN_SAMPLE_CODE, &COpenCVAppGUIDlg::OnBnClickedBtnSampleCode)
 	ON_MESSAGE(WM_ADD_STRING, &COpenCVAppGUIDlg::OnAddString)
 END_MESSAGE_MAP()
 
@@ -163,7 +164,8 @@ BOOL COpenCVAppGUIDlg::OnInitDialog()
 
 	_mMatBuff.clear();
 	_mInsps.clear();
-
+	//add update inspection list
+	UpdateInspList();
 	AddString("System Log :: Start()");
 	return TRUE;  // 포커스를 컨트롤에 설정하지 않으면 TRUE를 반환합니다.
 }
@@ -357,15 +359,11 @@ void COpenCVAppGUIDlg::OnBnClickedBtnLoad()
 		//else
 		//	_SourceImage.copyTo(_DrawImage);
 
-		string fileName = path;
+		string fileName = path.GetString();
 		_SourceImage = cv::imread(fileName, IMREAD_ANYCOLOR);
 
 		OnAllocateBuffer(_SourceImage.cols, _SourceImage.rows);
 		UpdateDispSrc();
-
-		//add update inspection list
-		UpdateInspList();
-		
 
 		InvalidateRect(_rtImageView, FALSE);
 		//AfxMessageBox("Image Loaded");
@@ -388,7 +386,7 @@ void COpenCVAppGUIDlg::OnBnClickedBtnSave()
 	//옵션 선택 부분.
 	if (dlgFileSave.DoModal() == IDOK)
 	{
-		string str = dlgFileSave.GetPathName();
+		string str = dlgFileSave.GetPathName().GetString();
 		imwrite(str, _SourceImage);
 	}
 
@@ -428,7 +426,7 @@ void COpenCVAppGUIDlg::OnBnClickedBtnInspection()
 			}
 		}
 	}
-	
+
 
 	// rt
 	for (size_t topIndex = 0; topIndex < _vLinePoints_Top.size(); topIndex++)
@@ -515,8 +513,8 @@ void COpenCVAppGUIDlg::OnBnClickedBtnInspection()
 	{
 		Point pt = pPoints[i];
 		draw = _mMatBuff[eImgDrawColor];
-		line(draw, Point(pt.x - 10, pt.y-10), Point(pt.x + 10, pt.y+10), Scalar(255, 255, 0), thickness, lineType);
-		line(draw, Point(pt.x+10, pt.y - 10), Point(pt.x-10, pt.y + 10), Scalar(255, 255, 0), thickness, lineType);
+		line(draw, Point(pt.x - 10, pt.y - 10), Point(pt.x + 10, pt.y + 10), Scalar(255, 255, 0), thickness, lineType);
+		line(draw, Point(pt.x + 10, pt.y - 10), Point(pt.x - 10, pt.y + 10), Scalar(255, 255, 0), thickness, lineType);
 		draw = _mMatBuff[eImgDebugColor];
 		line(draw, Point(pt.x - 10, pt.y - 10), Point(pt.x + 10, pt.y + 10), Scalar(255, 255, 0), thickness, lineType);
 		line(draw, Point(pt.x + 10, pt.y - 10), Point(pt.x - 10, pt.y + 10), Scalar(255, 255, 0), thickness, lineType);
@@ -580,6 +578,7 @@ int COpenCVAppGUIDlg::OnAllocateBuffer(int cols, int rows)
 
 int COpenCVAppGUIDlg::UpdateInspList()
 {
+	_mInsps.clear();
 	_mInsps.insert(make_pair("OnInspFindcontourSample", COpenCVAppGUIDlg::CallInspFindcontourSample));
 	_mInsps.insert(make_pair("OnInspFindShape", COpenCVAppGUIDlg::CallInspFindShape));
 	_mInsps.insert(make_pair("OnInspFindMultiShape", COpenCVAppGUIDlg::CallInspFindMultiShape));
@@ -588,6 +587,9 @@ int COpenCVAppGUIDlg::UpdateInspList()
 	_mInsps.insert(make_pair("OnInspMorpology", COpenCVAppGUIDlg::CallInspMorpology));
 	_mInsps.insert(make_pair("OnInspMorpologyMultiObjects", COpenCVAppGUIDlg::CallInspMorpologyMultiObjects));
 	_mInsps.insert(make_pair("OnInspHistoEqulization", COpenCVAppGUIDlg::CallInspHistoEqulization));
+	_mInsps.insert(make_pair("OnInspCorrection", COpenCVAppGUIDlg::CallInspCorrection));
+	_mInsps.insert(make_pair("OnInspSearchingContour", COpenCVAppGUIDlg::CallInspSearchingContour));
+
 
 	return 1;
 }
@@ -632,13 +634,13 @@ int COpenCVAppGUIDlg::OnInspection(uchar* pSrc, size_t cols, size_t rows, uchar*
 	//Left->Right
 	for (size_t row = 0; row < rows; row++)
 		for (size_t col = 0; col < cols; col++)
-			if (pDst[row * cols + col] > 100){
+			if (pDst[row * cols + col] > 100) {
 				_vLinePoints_Left.push_back(cv::Point(col, row));
 				break;
 			}
 	//Right->Left
 	for (size_t row = 0; row < rows; row++)
-		for (size_t col = cols-1; col > 0; col--)
+		for (size_t col = cols - 1; col > 0; col--)
 			if (pDst[row * cols + col] > 100) {
 				_vLinePoints_Right.push_back(cv::Point(col, row));
 				break;
@@ -654,7 +656,7 @@ int COpenCVAppGUIDlg::OnInspection(uchar* pSrc, size_t cols, size_t rows, uchar*
 			}
 	//Bottom->Top
 	for (size_t col = 0; col < cols; col++)
-		for (size_t row = rows-1; row > 0; row--)
+		for (size_t row = rows - 1; row > 0; row--)
 			if (pDst[row * cols + col] > 100) {
 				_vLinePoints_Btm.push_back(cv::Point(col, row));
 				break;
@@ -719,6 +721,16 @@ int COpenCVAppGUIDlg::CallInspHistoEqulization(void* lpUserData)
 {
 	COpenCVAppGUIDlg* pDlg = reinterpret_cast<COpenCVAppGUIDlg*>(lpUserData);
 	return pDlg->OnInspHistoEqulization();
+}
+int COpenCVAppGUIDlg::CallInspCorrection(void* lpUserData)
+{
+	COpenCVAppGUIDlg* pDlg = reinterpret_cast<COpenCVAppGUIDlg*>(lpUserData);
+	return pDlg->OnInspCorrection();
+}
+int COpenCVAppGUIDlg::CallInspSearchingContour(void* lpUserData)
+{
+	COpenCVAppGUIDlg* pDlg = reinterpret_cast<COpenCVAppGUIDlg*>(lpUserData);
+	return pDlg->OnInspSearchingContour();
 }
 int COpenCVAppGUIDlg::OnInspFindcontourSample()
 {
@@ -799,7 +811,7 @@ int COpenCVAppGUIDlg::OnInspFindShapes()
 
 		if (contours[i].size() >= 100 && contours[i].size() <= 150)
 		{
-			circle_index = i; 
+			circle_index = i;
 			continue;
 		}
 		else if (contours[i].size() == 4)
@@ -819,7 +831,7 @@ int COpenCVAppGUIDlg::OnInspFindShapes()
 	Mat drawing = _mMatBuff[eImgDebugColor];
 	drawing = _mMatBuff[eImgDrawColor];
 
-	drawContours(drawing, contours, (int)circle_index, Scalar(0,0, 255), 2, LINE_8, hierarchy, 0);
+	drawContours(drawing, contours, (int)circle_index, Scalar(0, 0, 255), 2, LINE_8, hierarchy, 0);
 	drawContours(drawing, contours, (int)rectangle_index, Scalar(255, 0, 0), 2, LINE_8, hierarchy, 0);
 	drawContours(drawing, contours, (int)triangle_index, Scalar(0, 255, 0), 2, LINE_8, hierarchy, 0);
 
@@ -874,7 +886,7 @@ int COpenCVAppGUIDlg::OnInspFindMultiShape()
 		ostringstream ss;
 		ss << std::fixed;
 		ss << "[";
-		ss << to_string(i+1);
+		ss << to_string(i + 1);
 		ss << "]";
 		ss << " area = ";
 		ss << std::setprecision(3) << area;
@@ -890,7 +902,7 @@ int COpenCVAppGUIDlg::OnInspFindMultiShape()
 		tag << "[";
 		tag << to_string(i + 1);
 		tag << "]";
-		putText(drawing, tag.str(), rt.boundingRect().tl(), CV_FONT_HERSHEY_TRIPLEX,0.6,Scalar(255,255,255));
+		putText(drawing, tag.str(), rt.boundingRect().tl(), CV_FONT_HERSHEY_TRIPLEX, 0.6, Scalar(255, 255, 255));
 
 
 
@@ -920,7 +932,7 @@ int COpenCVAppGUIDlg::OnInspFindMultiShape()
 		drawContours(mask, contours, vRectangle_index[index], Scalar(255, 255, 255), CV_FILLED, 8, hierarchy);
 	for (size_t index = 0; index < vTriangle_index.size(); index++)
 		drawContours(mask, contours, vTriangle_index[index], Scalar(255, 255, 255), CV_FILLED, 8, hierarchy);
-	
+
 	drawing = _mMatBuff[eImgDrawColor];
 	drawing = drawing & mask;
 
@@ -947,7 +959,7 @@ void COpenCVAppGUIDlg::OnBnClickedBtnInspectionCv()
 	//auto ret = f(this); // int COpenCVAppGUIDlg::OnInspFindShapes()
 
 	//auto f = _mInsps["OnInspFindShape"];
-	auto f = _mInsps["OnInspHistoEqulization"];
+	auto f = _mInsps["OnInspSearchingContour"];
 	if (f == nullptr) return;
 	auto ret = f(this); // int COpenCVAppGUIDlg::OnInspFindShapes()
 
@@ -960,7 +972,7 @@ void COpenCVAppGUIDlg::OnBnClickedBtnSampleCode()
 	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
 	vector<Point> contour;//single object
 	vector<vector<Point> > contours;//multi objects
-	
+
 	//contour #1...object1
 	contour.clear();
 	contour.push_back(Point(10, 10));
@@ -1303,7 +1315,7 @@ int COpenCVAppGUIDlg::OnInspMorpologyMultiObjects()
 	int openning_cnt = 1;
 	for (size_t i = 0; i < openning_cnt; i++)
 	{
-		erode(openning, openning, element, Point(-1,-1),1);
+		erode(openning, openning, element, Point(-1, -1), 1);
 		dilate(openning, openning, element, Point(-1, -1), 1);
 	}
 
@@ -1335,7 +1347,7 @@ int COpenCVAppGUIDlg::OnInspMorpologyMultiObjects()
 		string ssTxt = ss.str();
 		AddString(ssTxt.c_str());
 
-		
+
 		ostringstream tag;
 		tag << "[";
 		tag << to_string(i + 1);
@@ -1352,7 +1364,7 @@ int COpenCVAppGUIDlg::OnInspMorpologyMultiObjects()
 		double area = contourArea(contours[i]);
 		if (area < 100) continue;
 		RotatedRect rt = minAreaRect(contours[i]);
-		
+
 		double perimeter = arcLength(contours[i], true);
 		double circularity = 4 * CV_PI * area / (perimeter * perimeter);
 		ostringstream ss;
@@ -1398,8 +1410,8 @@ int COpenCVAppGUIDlg::OnInspHistoEqulization()
 	int cumulative_freq[histo_max] = { 0, };
 	int new_gray_value[histo_max] = { 0, };
 	//get histogram :: 히스토그램
-	for (size_t i = 0; i < src_gray.cols*src_gray.rows; i++) histo[src_gray.data[i]]++;
-
+	for (size_t i = 0; i < src_gray.cols * src_gray.rows; i++) histo[src_gray.data[i]]++;
+	//                                                      밝기 값[i번째 밝기 값]
 	//get cumulative frequence :: 누적분포
 	cumulative_freq[0] = histo[0];
 	//for (size_t i = 1; i < histo_max; i++) cumulative_freq[i]=histo[i] + cumulative_freq[i-1];
@@ -1412,6 +1424,7 @@ int COpenCVAppGUIDlg::OnInspHistoEqulization()
 		cumulative_freq[i] = acc;
 		//new_gray_value[i] = round((((float)cumulative_freq[i]) * 255) / src_gray.cols * src_gray.rows);
 		new_gray_value[i] = round((((float)acc) * 255) / (src_gray.cols * src_gray.rows));
+		//0~255                         밝기 최대값 / 전체크기
 	}
 
 	//drawing...histo debug color area
@@ -1419,11 +1432,11 @@ int COpenCVAppGUIDlg::OnInspHistoEqulization()
 	int lineType = LINE_8;
 
 	cvtColor(_mMatBuff[eImgSrcGray], _mMatBuff[eImgDebugColor], ColorConversionCodes::COLOR_GRAY2BGR);
-	
+
 	Mat debug_draw = _mMatBuff[eImgDebugColor];
 	//draw   |------>
-	bool view_horizontal = false;
-	bool view_vertical = true;
+	bool view_horizontal = false;//세로로
+	bool view_vertical = true;//가로로
 	if (view_horizontal)
 	{
 		for (size_t row = 0; row < histo_max; row++)
@@ -1431,8 +1444,8 @@ int COpenCVAppGUIDlg::OnInspHistoEqulization()
 			line(debug_draw, Point(0, row * 2), Point(histo[row] / 10, row * 2), Scalar(255, 0, 255), thickness, lineType);
 		}
 	}
-	
-	if (view_vertical)
+
+	if (view_vertical)//아래->위
 	{
 		int height = src_gray.rows;
 		for (size_t col = 0; col < histo_max; col++)
@@ -1442,7 +1455,7 @@ int COpenCVAppGUIDlg::OnInspHistoEqulization()
 			Point pt2 = Point(col * 2, height - 1 - histo[col] / 10);//end
 			line(debug_draw, pt1, pt2, Scalar(0, 255, 128), thickness, lineType);
 		}
-
+		//선?
 		int max_cumulate = cumulative_freq[histo_max - 1];
 		for (size_t col = 0; col < histo_max; col++)
 		{
@@ -1451,7 +1464,7 @@ int COpenCVAppGUIDlg::OnInspHistoEqulization()
 				int scaled_v = (cumulative_freq[col] / max_cumulate) * height;
 				Point pt1 = Point(col * 2, scaled_v);//start
 				Point pt2 = Point(col * 2, scaled_v);//end
-				line(debug_draw, pt1, pt2, Scalar(0, 0, 255), thickness, lineType);
+				line(debug_draw, pt1, pt2, Scalar(0, 255, 255), thickness, lineType);
 				continue;
 			}
 			//draw cumulate
@@ -1459,22 +1472,23 @@ int COpenCVAppGUIDlg::OnInspHistoEqulization()
 			int scaled_v2 = (cumulative_freq[col] * 1.0 / max_cumulate) * height;
 			Point pt1 = Point(col * 2, height - scaled_v1);//start
 			Point pt2 = Point(col * 2, height - scaled_v2);//end
-			line(debug_draw, pt1, pt2, Scalar(0, 0, 255), thickness, lineType);
-
+			line(debug_draw, pt1, pt2, Scalar(0, 255, 255), thickness, lineType);
+			//그래프
 		}
 	}
-	
+
 
 
 	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	//src
 	Mat src_gray_histoEqual = _mMatBuff[eImgSrcGray].clone();
 	for (size_t i = 0; i < src_gray.cols * src_gray.rows; i++)
 	{
 		src_gray_histoEqual.data[i] = new_gray_value[src_gray.data[i]];
-	}
+	}//                                              [원본]
 	cvtColor(src_gray_histoEqual, _mMatBuff[eImgDrawColor], ColorConversionCodes::COLOR_GRAY2BGR);
+	//밝은부분은 더 밝게, 어두운곳은 더 어둡게
 
-	
 
 	//get histogram :: 히스토그램
 	for (size_t i = 0; i < src_gray.cols * src_gray.rows; i++) histo[src_gray_histoEqual.data[i]]++;
@@ -1529,7 +1543,7 @@ int COpenCVAppGUIDlg::OnInspHistoEqulization()
 				int scaled_v = (cumulative_freq[col] / max_cumulate) * height;
 				Point pt1 = Point(col * 2, scaled_v);//start
 				Point pt2 = Point(col * 2, scaled_v);//end
-				line(color_draw, pt1, pt2, Scalar(0, 0, 255), thickness, lineType);
+				line(color_draw, pt1, pt2, Scalar(0, 255, 255), thickness, lineType);
 				continue;
 			}
 			//draw cumulate
@@ -1537,34 +1551,35 @@ int COpenCVAppGUIDlg::OnInspHistoEqulization()
 			int scaled_v2 = (cumulative_freq[col] * 1.0 / max_cumulate) * height;
 			Point pt1 = Point(col * 2, height - scaled_v1);//start
 			Point pt2 = Point(col * 2, height - scaled_v2);//end
-			line(color_draw, pt1, pt2, Scalar(0, 0, 255), thickness, lineType);
+			line(color_draw, pt1, pt2, Scalar(0, 255, 255), thickness, lineType);
 
 		}
 	}
 
+	//SNR
+	Mat enhanced_img = src_gray_histoEqual;
+	Mat src_img = src_gray;
 
+	Mat abs_diff;
+	absdiff(enhanced_img, src_img, abs_diff);
+	abs_diff.convertTo(abs_diff, CV_32F);
+	abs_diff = abs_diff.mul(abs_diff);
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-	
-
-
-
-
-
+	Scalar s_sum = cv::sum(abs_diff);
+	double sum = s_sum.val[0];
+	double MSE = 0, PSNR = 0;
+	if (sum <= 1e-10)
+	{
+		MSE = PSNR = 0;
+	}
+	else
+	{
+		MSE = sum / (double)(src_img.channels() * src_img.total());
+		PSNR = 10.0 * log10((255 * 255) / MSE);
+	}
+	string msg = "";
+	msg = "MSE = " + to_string(MSE) + " PSNR = " + to_string(PSNR);
+	AddString(msg.c_str());
 
 
 
@@ -1572,4 +1587,311 @@ int COpenCVAppGUIDlg::OnInspHistoEqulization()
 
 	Invalidate(FALSE);
 	return 0;
+}
+
+int COpenCVAppGUIDlg::OnInspCorrection()
+{
+	_bShowDebug = _bShowResult = false;
+	double minV, maxV;
+	Mat src_gray = _mMatBuff[eImgSrcGray];//얕은복사...주소값이 같다
+
+
+	Mat src_Color = _mMatBuff[eImgSrcColor];
+	OnDrawHistogram(src_gray, src_Color);
+
+	putText(src_Color, string("Original"), Point(10, 50), CV_FONT_HERSHEY_TRIPLEX, 0.6, Scalar(0, 255, 255));
+
+	string msg = "";
+
+	msg = "[ Left ] Original Histogram";
+	cv::minMaxLoc(src_gray, &minV, &maxV);
+	msg += std::format("  min Value = {:0.3f}", minV);
+	msg += std::format("  max Value = {:0.3f}", maxV);
+
+	AddString(msg.c_str());
+
+	//1.각 픽셀 밝기를 + 30 만큼 증가하시오
+	//새로운 이미지 버퍼를 생성
+	Mat src_gray_add = cv::Mat(src_gray.size(), src_gray.type()/*CV_8UC1*/);
+	src_gray_add = 0;
+	//초기값이 0인 버퍼가 생성
+
+	//src_gray_add = src_gray.clone();//깊은복사...주소값이 달라짐. 데이타는 같다
+
+
+	int add_value = 30;
+	uchar* pData = src_gray.data;//원본
+	for (size_t row = 0; row < src_gray.rows; row++)
+	{
+		for (size_t col = 0; col < src_gray.cols; col++)
+		{
+			uchar* pDataAdd = src_gray_add.data;//목적
+			pDataAdd[row * src_gray.cols + col] = pData[row * src_gray.cols + col];
+			//1   =   1
+			if (pDataAdd[row * src_gray.cols + col] + add_value > 255)
+				pDataAdd[row * src_gray.cols + col] = 255;
+			else
+				pDataAdd[row * src_gray.cols + col] += add_value;//255보다 크다?  256->1 300->45
+			//a = b
+			//a += 30
+			//uchar ... 용량...0~255 [256] 
+		}
+	}
+
+	for (size_t i = 0; i < src_gray.total(); i++)
+	{
+		uchar* pDataAdd = src_gray_add.data;//목적
+		pDataAdd[i] = pData[i];
+		if (pDataAdd[i] + add_value > 255)
+			pDataAdd[i] = 255;
+		else
+			pDataAdd[i] += add_value;//255보다 크다?  256->1 300->45
+	}
+
+	Mat src_gray_matrix_add = cv::Mat(src_gray.size(), src_gray.type()/*CV_8UC1*/);
+	//src_gray.copyTo(src_gray_matrix_add);
+	//src_gray_matrix_add += add_value;
+	src_gray_matrix_add = src_gray * 1 + add_value;
+
+	Mat debugColor = _mMatBuff[eImgDebugColor];
+	cvtColor(src_gray_matrix_add, debugColor, COLOR_GRAY2BGR);
+	OnDrawHistogram(src_gray_matrix_add, debugColor);
+	putText(debugColor, string("Math Add + 30"), Point(10, 50), CV_FONT_HERSHEY_TRIPLEX, 0.6, Scalar(0, 255, 255));
+
+	msg = "";
+	msg = "[ Center ] Add 30 Histogram";
+	cv::minMaxLoc(src_gray_matrix_add, &minV, &maxV);
+	msg += std::format("  min Value = {:0.3f}", minV);
+	msg += std::format("  max Value = {:0.3f}", maxV);
+
+	AddString(msg.c_str());
+
+
+	//2.각 픽셀 밝기를 1.5배만큼 증가하시오
+	//3.각 픽셀 밝기를 1.24배하고 20만큼 증가하시오
+	Mat src_gray_matrix_op = cv::Mat(src_gray.size(), src_gray.type()/*CV_8UC1*/);
+	double a = 1.24;
+	int b = 20;
+	src_gray_matrix_op = src_gray * a + b;
+
+
+
+	//Gamma Correction
+	// LUT : Look Up Table
+	//int histo[256] = { 0, };
+	int LUT[256] = { 0, };
+	// .... 0 -> LUT[0] -> 10
+	// .... 2 -> LUT[2] -> 12
+	//수식변환공식의 생략 ... LUT
+	//𝑠 = 255×(𝑟 / 255)^𝛾
+	double gamma = 0.4;
+	for (size_t i = 0; i < 256; i++)
+	{
+		LUT[i] = std::pow(i / 255.0, gamma) * 255.0;
+	}
+
+
+	// 
+	// 
+	//Mat src_gray_gamma = cv::Mat(src_gray.size(), src_gray.type()/*CV_8UC1*/);
+	//src_gray_gamma = 0;
+
+	Mat src_gray_gamma = cv::Mat::zeros(src_gray.size(), src_gray.type()/*CV_8UC1*/);
+	for (size_t i = 0; i < src_gray.total(); i++)
+	{
+		uchar* pDataGamma = src_gray_gamma.data;//목적
+		pDataGamma[i] = LUT[pData[i]];
+	}
+
+
+	Mat drawColor = _mMatBuff[eImgDrawColor];
+	cvtColor(src_gray_gamma, drawColor, COLOR_GRAY2BGR);
+	OnDrawHistogram(src_gray_gamma, drawColor);
+	putText(drawColor, string("Gamma r 0.4"), Point(10, 50), CV_FONT_HERSHEY_TRIPLEX, 0.6, Scalar(0, 255, 255));
+
+	msg = "";
+	msg = "[ Right ] gamma 0.4 Histogram";
+	cv::minMaxLoc(src_gray_gamma, &minV, &maxV);
+	msg += std::format("  min Value = {:0.3f}", minV);
+	msg += std::format("  max Value = {:0.3f}", maxV);
+
+	AddString(msg.c_str());
+
+	_bShowDebug = _bShowResult = true;
+
+	Invalidate(FALSE);
+	return 0;
+}
+
+int COpenCVAppGUIDlg::OnInspSearchingContour()
+{
+	//아래 사각형의 Contour를 구하시오
+	vector<vector<Point>> Contours;
+	vector<Point> Contour;
+	Contours.clear();
+	Contour.clear();
+
+	const int cols = 10;
+	const int rows = 10;
+	uchar buff[rows * cols] = {
+		0,0,0,0,0,0,0,0,0,0,
+		0,0,0,0,0,0,0,0,0,0,
+		0,0,0,0,0,0,0,0,0,0,
+		0,0,0,1,1,1,1,0,0,0,
+		0,0,0,1,1,1,1,0,0,0,
+		0,0,0,1,1,1,1,0,0,0,
+		0,0,0,1,1,1,1,0,0,0,
+		0,0,0,0,0,0,0,0,0,0,
+		0,0,0,0,0,0,0,0,0,0,
+		0,0,0,0,0,0,0,0,0,0,
+	};
+
+	uchar buff_label[rows * cols] = {
+		0,0,0,0,0,0,0,0,0,0,
+		0,0,0,0,0,0,0,0,0,0,
+		0,0,0,0,0,0,0,0,0,0,
+		0,0,0,0,0,0,0,0,0,0,
+		0,0,0,0,0,0,0,0,0,0,
+		0,0,0,0,0,0,0,0,0,0,
+		0,0,0,0,0,0,0,0,0,0,
+		0,0,0,0,0,0,0,0,0,0,
+		0,0,0,0,0,0,0,0,0,0,
+		0,0,0,0,0,0,0,0,0,0,
+	};
+	Mat bufImg = Mat(rows, cols, CV_8UC1, buff);
+	Mat bufLabel = Mat(rows, cols, CV_8UC1, buff_label);
+	bufImg *= 255;
+
+
+	int label = 0;
+	Point ptStart(0, 0);
+	bool bStart = false;
+	bool bFind = false;
+
+	Contour.clear();
+	bFind = false;
+	for (size_t row = 0; row < rows; row++)
+	{
+		for (size_t col = 0; col < cols; col++)
+		{
+			int index = (row)*cols + (col);
+			if (bufImg.data[index] == 255 && bufLabel.data[index] == 0)
+			{
+				bFind = true;
+				bufLabel.data[index] = 255;
+				ptStart = Point(col, row);
+				Contour.push_back(ptStart);
+			}
+			if (bFind)
+			{
+				break;
+			}
+		}
+		if (bFind)
+		{
+			break;
+		}
+
+	}
+
+	//enum eDIR {eEE, eEN,eNN, eWN, eWW, eWS, eSS, eES, eDirMax};
+	enum eDIR { eEE, eES, eSS, eWS, eWW, eWN, eNN, eEN, eDirMax };
+	vector<Point> vDir(eDirMax);
+	vDir[(int)eEE] = Point(1, 0);
+	vDir[(int)eEN] = Point(1, -1);
+	vDir[(int)eNN] = Point(0, -1);
+	vDir[(int)eWN] = Point(-1, -1);
+	vDir[(int)eWW] = Point(-1, 0);
+	vDir[(int)eWS] = Point(-1, 1);
+	vDir[(int)eSS] = Point(0, 1);
+	vDir[(int)eES] = Point(1, 1);
+
+	int dir = eEE;
+	Point ptCur = ptStart;
+
+	do
+	{
+		bFind = false;
+		Point ptNext = ptCur + vDir[dir];
+		if (ptStart == ptNext)
+			break;
+		//search cross
+		if (bufImg.data[(ptNext.y) * cols + (ptNext.x)] == 255 &&
+			bufLabel.data[(ptNext.y) * cols + (ptNext.x)] != 255)
+		{
+			bufLabel.data[(ptNext.y) * cols + (ptNext.x)] = 255;
+			bFind = true;
+			Contour.push_back(ptNext);
+		}
+		else
+		{
+			dir++;
+		}
+		if (bFind)
+		{
+			ptCur = ptNext;
+			//dir = eEE;
+		}
+
+
+	} while (true);
+
+	for (size_t i = 1; i < Contour.size(); i++)
+	{
+		Point pre = Contour[i - 1];
+		Point cur = Contour[i];
+		double diff_pre = sqrt((pre.x - cur.x) * (pre.x - cur.x) + (pre.y - cur.y) * (pre.y - cur.y));
+		if (diff_pre == 1 && pre.y == cur.y)
+		{
+			Contour.erase(Contour.begin() + i);
+		}
+		if (diff_pre == 1 && pre.x == cur.x)
+		{
+			Contour.erase(Contour.begin() + i);
+		}
+	}
+
+	Contours.push_back(Contour);
+
+	for (auto& contour : Contours)
+	{
+		for (auto& iter : contour)
+		{
+			string msg = "";
+			msg = "x, y = ";
+			msg += std::format("{:d}, {:d}", iter.x, iter.y);
+			AddString(msg.c_str());
+		}
+	}
+
+
+
+
+	return 0;
+}
+
+int COpenCVAppGUIDlg::OnDrawHistogram(const Mat& src_gray, Mat& draw_color)
+{
+	const int histo_max = 256;
+	int histo[histo_max] = { 0, };
+
+	//get histogram :: 히스토그램
+	for (size_t i = 0; i < src_gray.cols * src_gray.rows; i++) histo[src_gray.data[i]]++;
+
+	//drawing...histo debug color area
+	double thickness = 1;
+	int lineType = LINE_8;
+
+	Mat color_draw = draw_color;
+	//draw   |------>
+	int height = src_gray.rows;
+	for (size_t col = 0; col < histo_max; col++)
+	{
+		//draw histo
+		Point pt1 = Point(col * 2, height - 1);//start
+		Point pt2 = Point(col * 2, height - 1 - histo[col] / 10);//end
+		line(color_draw, pt1, pt2, Scalar(0, 255, 128), thickness, lineType);
+	}
+
+	return 1;
 }

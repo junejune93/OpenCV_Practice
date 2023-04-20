@@ -93,7 +93,8 @@ private:
 	static int CallInspMorpologyChar(void* lpUserData);
 	static int CallInspMorpologyMultiObjects(void* lpUserData);
 	static int CallInspHistoEqulization(void* lpUserData);
-
+	static int CallInspCorrection(void* lpUserData);
+	static int CallInspSearchingContour(void* lpUserData);
 
 
 	int OnInspFindcontourSample();
@@ -105,6 +106,12 @@ private:
 	int OnInspMorpologyChar();
 	int OnInspMorpologyMultiObjects();
 	int OnInspHistoEqulization();
+	int OnInspCorrection();
+
+	int OnInspSearchingContour();
+
+	int OnDrawHistogram(const Mat& src, Mat& draw);
+
 	// 구현입니다.
 protected:
 	HICON m_hIcon;
