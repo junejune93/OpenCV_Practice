@@ -589,7 +589,8 @@ int COpenCVAppGUIDlg::UpdateInspList()
 	_mInsps.insert(make_pair("OnInspHistoEqulization", COpenCVAppGUIDlg::CallInspHistoEqulization));
 	_mInsps.insert(make_pair("OnInspCorrection", COpenCVAppGUIDlg::CallInspCorrection));
 	_mInsps.insert(make_pair("OnInspSearchingContour", COpenCVAppGUIDlg::CallInspSearchingContour));
-
+	_mInsps.insert(make_pair("OnInspMatching", COpenCVAppGUIDlg::CallInspMatching));
+	
 
 	return 1;
 }
@@ -731,6 +732,11 @@ int COpenCVAppGUIDlg::CallInspSearchingContour(void* lpUserData)
 {
 	COpenCVAppGUIDlg* pDlg = reinterpret_cast<COpenCVAppGUIDlg*>(lpUserData);
 	return pDlg->OnInspSearchingContour();
+}
+int COpenCVAppGUIDlg::CallInspMatching(void* lpUserData)
+{
+	COpenCVAppGUIDlg* pDlg = reinterpret_cast<COpenCVAppGUIDlg*>(lpUserData);
+	return pDlg->OnInspMatching();
 }
 int COpenCVAppGUIDlg::OnInspFindcontourSample()
 {
@@ -959,7 +965,7 @@ void COpenCVAppGUIDlg::OnBnClickedBtnInspectionCv()
 	//auto ret = f(this); // int COpenCVAppGUIDlg::OnInspFindShapes()
 
 	//auto f = _mInsps["OnInspFindShape"];
-	auto f = _mInsps["OnInspSearchingContour"];
+	auto f = _mInsps["OnInspMatching"];
 	if (f == nullptr) return;
 	auto ret = f(this); // int COpenCVAppGUIDlg::OnInspFindShapes()
 
@@ -1867,6 +1873,145 @@ int COpenCVAppGUIDlg::OnInspSearchingContour()
 
 
 
+	return 0;
+}
+
+int COpenCVAppGUIDlg::OnInspMatching()
+{
+	_bShowDebug = _bShowResult = false;
+
+
+	Mat search_img = cv::imread("../Build/x64/images/search_array.png", IMREAD_GRAYSCALE);
+	Mat search_ptrn = cv::imread("../Build/x64/images/search_ptrn_rect.png", IMREAD_GRAYSCALE);
+
+
+	if (1)//C++_Debug_Performance : 72s
+	{
+		/*Mat matching_img = search_img.clone();
+			matching_img = 0;*/
+		Mat matching_img = Mat::zeros(Size(search_img.cols - search_ptrn.cols + 1, search_img.rows - search_ptrn.rows + 1), CV_32F);
+
+		vector<Point> ptFind; ptFind.clear();
+		//pattern matching
+		for (size_t row = 0; row < search_img.rows - search_ptrn.rows + 1; row++)
+		{
+			for (size_t col = 0; col < search_img.cols - search_ptrn.cols + 1; col++)
+			{
+				uchar* pSearch = search_img.data;
+				uchar* pPtrn = search_ptrn.data;//5x2
+
+				double TM_SQDIFF = 0.0;
+				double TM_SQDIFF_NORMED = 0.0;
+				for (size_t prow = 0; prow < search_ptrn.rows; prow++)
+				{
+					for (size_t pcol = 0; pcol < search_ptrn.cols; pcol++)
+					{
+						int search_index = (row + prow) * search_img.cols + (col + pcol);
+						int ptrn_index = prow * search_ptrn.cols + pcol;
+
+						double diff = pSearch[search_index] - pPtrn[ptrn_index];
+						TM_SQDIFF += (diff * diff);
+					}
+				}
+				double ptrnSQ = 0., searchSQ = 0.;
+				for (size_t prow = 0; prow < search_ptrn.rows; prow++)
+				{
+					for (size_t pcol = 0; pcol < search_ptrn.cols; pcol++)
+					{
+						int search_index = (row + prow) * search_img.cols + (col + pcol);
+						int ptrn_index = prow * search_ptrn.cols + pcol;
+						searchSQ += pSearch[search_index] * pSearch[search_index];
+						ptrnSQ += pPtrn[ptrn_index] * pPtrn[ptrn_index];
+					}
+				}
+
+				//matching_img.at<double>(row, col) = TM_SQDIFF;
+				//if (TM_SQDIFF == 0)
+				//	ptFind.push_back(Point(col, row));
+				
+				if (ptrnSQ == 0) ptrnSQ = 1;
+				TM_SQDIFF_NORMED = TM_SQDIFF / sqrt(ptrnSQ * searchSQ);
+				matching_img.at<float>(row, col) = TM_SQDIFF_NORMED;
+
+				if (TM_SQDIFF_NORMED <= 0.003)
+					ptFind.push_back(Point(col, row));
+			}
+		}
+
+		Mat search_img_color = cv::imread("../Build/x64/images/search_array.png", IMREAD_ANYCOLOR);
+		for (size_t i = 0; i < ptFind.size(); i++)
+		{
+			cv::rectangle(search_img_color, Rect(ptFind[i].x, ptFind[i].y, search_ptrn.cols, search_ptrn.rows), Scalar(0, 0, 255), 3);
+		}
+
+
+	}
+	
+	
+	if (0) // OpenCV + Debug = 164ms
+	{
+		Mat match_result;
+		cv::matchTemplate(search_img, search_ptrn, match_result, TemplateMatchModes::TM_SQDIFF_NORMED);
+		double minV, maxV;
+		Point minLoc, maxLoc, matchLoc;
+		cv::minMaxLoc(match_result, &minV, &maxV, &minLoc, &maxLoc);
+		matchLoc = minLoc;//TemplateMatchModes::TM_SQDIFF_NORMED
+		Mat search_img_color = cv::imread("../Build/x64/images/search_array.png", IMREAD_ANYCOLOR);
+		cv::rectangle(search_img_color, Rect(matchLoc.x, matchLoc.y, search_ptrn.cols, search_ptrn.rows), Scalar(0, 0, 255), 3);
+
+		Mat match_bin;
+		double match_threshold = 0.003;
+		threshold(match_result, match_bin, match_threshold, 255, ThresholdTypes::THRESH_BINARY_INV);
+
+		match_bin.convertTo(match_bin, CV_8UC1);
+		vector<vector<Point> > contours;
+		vector<Vec4i> hierarchy;
+		findContours(match_bin, contours, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE);
+
+		for (size_t i = 0; i < contours.size(); i++)
+		{
+			RotatedRect rt = minAreaRect(contours[i]);
+			cv::rectangle(search_img_color, Rect(rt.center.x, rt.center.y, search_ptrn.cols, search_ptrn.rows), Scalar(0, 255, 255), 1);
+		}
+	}
+	
+	for (double  zoom = 1.0; zoom < 1.5; zoom+=0.1)
+	{
+		Mat search_ptrn = cv::imread("../Build/x64/images/search_ptrn_rect_small.png", IMREAD_GRAYSCALE);
+		resize(search_ptrn, search_ptrn, Size(search_ptrn.cols * zoom, search_ptrn.rows * zoom), 0, 0, InterpolationFlags::INTER_NEAREST);
+
+		Mat match_result;
+		cv::matchTemplate(search_img, search_ptrn, match_result, TemplateMatchModes::TM_SQDIFF_NORMED);
+		double minV, maxV;
+		Point minLoc, maxLoc, matchLoc;
+		cv::minMaxLoc(match_result, &minV, &maxV, &minLoc, &maxLoc);
+		matchLoc = minLoc;//TemplateMatchModes::TM_SQDIFF_NORMED
+		Mat search_img_color = cv::imread("../Build/x64/images/search_array.png", IMREAD_ANYCOLOR);
+		cv::rectangle(search_img_color, Rect(matchLoc.x, matchLoc.y, search_ptrn.cols, search_ptrn.rows), Scalar(0, 0, 255), 3);
+
+		Mat match_bin;
+		double match_threshold = 0.003;
+		threshold(match_result, match_bin, match_threshold, 255, ThresholdTypes::THRESH_BINARY_INV);
+
+		match_bin.convertTo(match_bin, CV_8UC1);
+		vector<vector<Point> > contours;
+		vector<Vec4i> hierarchy;
+		findContours(match_bin, contours, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE);
+
+		for (size_t i = 0; i < contours.size(); i++)
+		{
+			RotatedRect rt = minAreaRect(contours[i]);
+			cv::rectangle(search_img_color, Rect(rt.center.x, rt.center.y, search_ptrn.cols, search_ptrn.rows), Scalar(0, 255, 255), 1);
+		}
+	}
+	
+
+
+
+
+	_bShowDebug = _bShowResult = true;
+
+	Invalidate(FALSE);
 	return 0;
 }
 

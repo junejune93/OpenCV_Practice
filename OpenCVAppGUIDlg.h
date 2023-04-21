@@ -95,7 +95,7 @@ private:
 	static int CallInspHistoEqulization(void* lpUserData);
 	static int CallInspCorrection(void* lpUserData);
 	static int CallInspSearchingContour(void* lpUserData);
-
+	static int CallInspMatching(void* lpUserData);
 
 	int OnInspFindcontourSample();
 	int OnInspFindShapes();
@@ -107,8 +107,9 @@ private:
 	int OnInspMorpologyMultiObjects();
 	int OnInspHistoEqulization();
 	int OnInspCorrection();
-
 	int OnInspSearchingContour();
+
+	int OnInspMatching();
 
 	int OnDrawHistogram(const Mat& src, Mat& draw);
 
